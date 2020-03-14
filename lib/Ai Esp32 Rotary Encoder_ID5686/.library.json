@@ -1,0 +1,50 @@
+{
+    "name": "Ai Esp32 Rotary Encoder", 
+    "version": "1.0", 
+    "keywords": [
+        "device", 
+        "control"
+    ], 
+    "description": "Easy implement rotary encoder to your application", 
+    "frameworks": [
+        "arduino"
+    ], 
+    "platforms": [
+        "atmelavr", 
+        "atmelsam", 
+        "espressif32", 
+        "espressif8266", 
+        "intel_arc32", 
+        "microchippic32", 
+        "nordicnrf51", 
+        "nordicnrf52", 
+        "ststm32", 
+        "teensy", 
+        "timsp430"
+    ], 
+    "authors": [
+        {
+            "email": "adapted code from github.com/marcmerlin/IoTuz", 
+            "url": null, 
+            "maintainer": true, 
+            "name": "Igor Antolic"
+        }
+    ], 
+    "repository": {
+        "type": "git", 
+        "url": "https://github.com/igorantolic/ai-esp32-rotary-encoder"
+    }, 
+    "homepage": "https://github.com/iantolic/ai-esp32-rotary-encoder.git", 
+    "export": {
+        "include": null, 
+        "exclude": [
+            "extras", 
+            "docs", 
+            "tests", 
+            "test", 
+            "*.doxyfile", 
+            "*.pdf"
+        ]
+    }, 
+    "id": 5686
+}
