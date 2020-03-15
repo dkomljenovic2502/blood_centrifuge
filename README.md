@@ -1,8 +1,9 @@
 # blood_centrifuge
-This is a open source 3d printed centrifuge based upon arduino board
+This is an open-source 3d printed centrifuge based upon Arduino board
 
 # THIS IS WIP  
-first i try to get the hw all up and running  
+The idea for progress:
+first, I try to get the HW all up and running  
 second try to write it in nice code  
 third try to publish some schematics  
 forth create 3d printer models  
@@ -18,3 +19,6 @@ SPEED SENSOR - [TCRT5000](https://aliexpi.com/ovmj)
 ### SW elements/internal HW to control:
 [PID](https://github.com/br3ttb/Arduino-PID-Library)  
 [SPI](https://github.com/espressif/arduino-esp32/tree/master/libraries/SPI/src)
+
+## Fritzing schematic:
+![friz image](pics/fritzing_scheme_bb.png "Fritz image")
