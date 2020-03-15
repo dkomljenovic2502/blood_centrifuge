@@ -19,10 +19,11 @@ Servo myservo;
 int enc_value = 55;
 std::chrono::system_clock::time_point now;
 bool start_centrifuge = false;
+int16_t my_enc_delta = 0;
 
 // Rotary encoder
-AiEsp32RotaryEncoder my_enc = AiEsp32RotaryEncoder(ENCODER_PIN_1, ENCODER_PIN_2, ENCODER_PIN_SW, ENCODER_PIN_VCC);
-int32_t rpm_setp = -999;
+AiEsp32RotaryEncoder my_enc = AiEsp32RotaryEncoder(ENCODER_PIN_CLK, ENCODER_PIN_DT, ENCODER_PIN_SW, ENCODER_PIN_VCC);
+int32_t rpm_setp = 0;
 
 // Display
 Adafruit_ST7789 my_display = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
@@ -72,15 +73,6 @@ void read_speed() {
 std::thread read_speed_thread(read_speed);
 // END Read speed
 
-void servo_manipulation() {
-
-	if (enc_value > 65) {
-		enc_value = 55;
-	}
-	print_to_screenln("Enc value :: " + String(enc_value));
-	myservo.write(enc_value);
-}
-
 void setup() {
 	// Start the serial readout
 	Serial.begin(115200);
@@ -88,45 +80,38 @@ void setup() {
 	SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI, SPI_SS);
 	// Start the display
 	my_display.init(240, 240, SPI_MODE2);
+	my_display.fillScreen(ST77XX_WHITE);
+	delay(10);
 	my_display.fillScreen(ST77XX_BLACK);
 	my_display.setRotation(3);
 	my_display.setTextSize(3);
 	// Set the servo
-	myservo.attach(SERVO_PIN);
+	myservo.attach(ESC_PIN);
 	// we must initialize rorary encoder
 	my_enc.begin();
-	my_enc.setup([] { my_enc.readEncoder_ISR(); });
+	my_enc.setup([] {my_enc.readEncoder_ISR();});
 	// optionally we can set boundaries and if values should cycle or not
-	my_enc.setBoundaries(0, 10, true); // minValue, maxValue, cycle values (when
-									   // max go to min and vice versa)
-
-	pinMode(LED_BUILTIN, OUTPUT);
-	//Start the IR speed sensor
-	pinMode(POWER_SPEED_SENSOR, OUTPUT);
-	digitalWrite(POWER_SPEED_SENSOR, HIGH);
+	my_enc.setBoundaries(0, 10000, false); // minValue, maxValue, cycle values (when max go to min and vice versa)
 }
 
 void loop() {
 	clear_screen();
-	static int32_t my_enc_delta = my_enc.readEncoder();
-	DEBUG_PRINT("Read data ::" + String(my_enc_delta));
+	my_enc_delta = my_enc.encoderChanged();
 	if (my_enc.currentButtonState() == BUT_PUSHED) {
 		print_to_screenln("My button BUT_PUSHED");
 		start_centrifuge = !start_centrifuge;
-
-		enc_value += 1; // delete me
 	}
 
 	if (start_centrifuge) {
-		servo_manipulation();
+		myservo.write(rpm_setp);
 	} else {
 		myservo.write(0);
 	}
 
 	if (my_enc_delta != 0) {
 		rpm_setp += my_enc_delta;
-		print_to_screenln("Speed is: " + String(rpm_setp) + "rpm");
+		DEBUG_PRINT("Read data ::" + String(my_enc_delta));
+		print_to_screenln("Speed setp: " + String(rpm_setp) + "rpm");
 	}
 	delay(100);
-	my_enc.enable();
 }
