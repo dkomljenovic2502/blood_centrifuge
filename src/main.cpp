@@ -1,7 +1,9 @@
+#include "defines.h"
+
 #include "Adafruit_ST7789.h"
 #include "AiEsp32RotaryEncoder.h"
+#include "PID_v1.h"
 #include "Servo.h"
-#include "defines.h"
 #include <Arduino.h>
 #include <SPI.h>
 #include <chrono>
@@ -16,14 +18,9 @@
 #endif
 
 Servo myservo;
-int enc_value = 55;
 std::chrono::system_clock::time_point now;
 bool start_centrifuge = false;
 int16_t my_enc_delta = 0;
-
-// Rotary encoder
-AiEsp32RotaryEncoder my_enc = AiEsp32RotaryEncoder(ENCODER_PIN_CLK, ENCODER_PIN_DT, ENCODER_PIN_SW, ENCODER_PIN_VCC);
-int32_t rpm_setp = 0;
 
 // Display
 Adafruit_ST7789 my_display = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
@@ -41,6 +38,26 @@ void print_to_screen(String t_inp_string) {
 	my_display.print(t_inp_string);
 }
 // end print to screen
+
+// Rotary encoder
+AiEsp32RotaryEncoder my_enc = AiEsp32RotaryEncoder(ENCODER_PIN_CLK, ENCODER_PIN_DT, ENCODER_PIN_SW, ENCODER_PIN_VCC);
+
+// PID
+double pid_setpoint = START_SETP_RPM, pid_input, pid_output;
+double pid_kp = 0.005, pid_ki = 0.01, pid_kd = 0;
+double pid_kp_low = 0.001, pid_ki_low = 0.003, pid_kd_low = 0;
+PID my_pid(&pid_input, &pid_output, &pid_setpoint, pid_kp, pid_ki, pid_kd, DIRECT);
+void pid_manipulation() {
+	while (1) {
+		if (start_centrifuge) {
+			my_pid.Compute();
+		}
+		delay(500);
+	}
+}
+// Create a task for pid read
+std::thread pid_manipulation_thread(pid_manipulation);
+// END PID
 
 // Read speed
 int speed_read_value;
@@ -62,7 +79,8 @@ void read_speed() {
 		now = std::chrono::system_clock::now();
 		time_passed = std::chrono::duration_cast<std::chrono::milliseconds>(now - speed_read_at_time).count();
 		if (time_passed >= 1000) {
-			print_to_screenln("Sensor spd::" + String((speed_counter * 60000) / time_passed) + " rpm");
+			pid_input = (speed_counter * 60000) / time_passed;
+			print_to_screenln("Sensor spd::" + String(pid_input) + " rpm");
 			speed_read_at_time = std::chrono::system_clock::now();
 			speed_counter = 0;
 		}
@@ -80,8 +98,6 @@ void setup() {
 	SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI, SPI_SS);
 	// Start the display
 	my_display.init(240, 240, SPI_MODE2);
-	my_display.fillScreen(ST77XX_WHITE);
-	delay(10);
 	my_display.fillScreen(ST77XX_BLACK);
 	my_display.setRotation(3);
 	my_display.setTextSize(3);
@@ -89,9 +105,14 @@ void setup() {
 	myservo.attach(ESC_PIN);
 	// we must initialize rorary encoder
 	my_enc.begin();
-	my_enc.setup([] {my_enc.readEncoder_ISR();});
+	my_enc.setup([] { my_enc.readEncoder_ISR(); });
 	// optionally we can set boundaries and if values should cycle or not
-	my_enc.setBoundaries(0, 10000, false); // minValue, maxValue, cycle values (when max go to min and vice versa)
+	my_enc.setBoundaries(0, 100, false); // minValue, maxValue, cycle values (when max go to min and vice versa)
+
+	// turn the PID on
+	my_pid.SetOutputLimits(-10, 300);
+	my_pid.SetMode(AUTOMATIC);
+	pinMode(SPEED_READ_PIN, ANALOG);
 }
 
 void loop() {
@@ -103,15 +124,20 @@ void loop() {
 	}
 
 	if (start_centrifuge) {
-		myservo.write(rpm_setp);
+		myservo.writeMicroseconds(ESC_MINIMUM_MS + pid_output);
 	} else {
 		myservo.write(0);
 	}
 
 	if (my_enc_delta != 0) {
-		rpm_setp += my_enc_delta;
-		DEBUG_PRINT("Read data ::" + String(my_enc_delta));
-		print_to_screenln("Speed setp: " + String(rpm_setp) + "rpm");
+		pid_setpoint += 50 * double(my_enc_delta);
+		print_to_screenln("Speed setp: " + String(pid_setpoint) + "rpm");
 	}
+	if ((abs(pid_setpoint - pid_input)) > 70) {
+		my_pid.SetTunings(pid_kp, pid_ki, pid_kd);
+	} else {
+		my_pid.SetTunings(pid_kp_low, pid_ki_low, pid_kd_low);
+	}
+	DEBUG_PRINT("setp::" + String(pid_setpoint) + " outp::" + String(ESC_MINIMUM_MS + pid_output) + " inp::" + String(pid_input));
 	delay(100);
 }
